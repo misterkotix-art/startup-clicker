@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STARTUP CLICKER</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #050a05;
+  --bg2:     #0a120a;
+  --bg3:     #0f1a0f;
+  --green:   #00ff41;
+  --green2:  #00cc33;
+  --green3:  #008f1f;
+  --dim:     #1a3320;
+  --amber:   #ffb000;
+  --red:     #ff3333;
+  --blue:    #00aaff;
+  --text:    #b0ffb0;
+  --muted:   #3a6640;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  font-family: 'Share Tech Mono', monospace;
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* scanlines */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,65,.03) 3px,rgba(0,255,65,.03) 4px);
+  pointer-events:none; z-index:9000;
+}
+
+/* ── LAYOUT ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── HEADER ── */
+#header {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--dim);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+
+.stage-badge {
+  font-family: 'VT323', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--green3);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.company-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  text-shadow: 0 0 10px rgba(0,255,65,.4);
+  letter-spacing: 1px;
+}
+
+.loc-display {
+  font-family: 'VT323', monospace;
+  font-size: 36px;
+  color: var(--green);
+  line-height: 1;
+  text-shadow: 0 0 15px rgba(0,255,65,.5);
+  margin-top: 4px;
+}
+
+.loc-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+.per-sec {
+  font-size: 11px;
+  color: var(--green3);
+  margin-top: 1px;
+}
+
+/* ── PROGRESS BAR ── */
+.stage-bar-wrap {
+  height: 3px;
+  background: var(--dim);
+  margin-top: 8px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.stage-bar {
+  height: 100%;
+  background: var(--green);
+  border-radius: 2px;
+  transition: width .5s;
+  box-shadow: 0 0 6px var(--green);
+}
+
+/* ── TAP AREA ── */
+#tap-area {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 14px 12px;
+  position: relative;
+  background: var(--bg);
+}
+
+#tap-btn {
+  width: 130px; height: 130px;
+  border-radius: 50%;
+  border: 2px solid var(--green3);
+  background: var(--bg2);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: border-color .1s, box-shadow .1s, transform .08s;
+  box-shadow: 0 0 20px rgba(0,255,65,.1), inset 0 0 20px rgba(0,255,65,.05);
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+#tap-btn:active, #tap-btn.tapped {
+  transform: scale(.93);
+  border-color: var(--green);
+  box-shadow: 0 0 30px rgba(0,255,65,.4), inset 0 0 30px rgba(0,255,65,.1);
+}
+
+.tap-icon {
+  font-family: 'VT323', monospace;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--green);
+  text-shadow: 0 0 10px rgba(0,255,65,.6);
+}
+
+.tap-label {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--green3);
+  margin-top: 2px;
+}
+
+.tap-power {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+/* floating +LOC on tap */
+.float-loc {
+  position: absolute;
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green);
+  pointer-events: none;
+  animation: floatUp .9s forwards;
+  z-index: 100;
+}
+@keyframes floatUp {
+  0%   { opacity:1; transform:translateY(0) scale(1); }
+  100% { opacity:0; transform:translateY(-70px) scale(.8); }
+}
+
+/* ── TABS ── */
+#tabs {
+  display: flex;
+  border-bottom: 1px solid var(--dim);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1; padding: 8px 4px;
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+/* ── PANEL ── */
+#panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--bg);
+  scrollbar-width: none;
+}
+#panel::-webkit-scrollbar { display: none; }
+
+/* ── HIRE CARDS ── */
+.hire-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--bg2);
+  border: 1px solid var(--dim);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  position: relative;
+  overflow: hidden;
+}
+.hire-card:active { background: var(--bg3); }
+.hire-card.affordable { border-color: var(--green3); }
+.hire-card.affordable:active { border-color: var(--green); }
+.hire-card.maxed { opacity: .4; cursor: default; }
+
+.hire-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--dim);
+  transition: background .15s;
+}
+.hire-card.affordable::before { background: var(--green3); }
+
+.hire-emoji { font-size: 28px; flex-shrink: 0; }
+
+.hire-info { flex: 1; min-width: 0; }
+.hire-name { font-size: 13px; color: var(--text); font-weight: 500; }
+.hire-desc { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.hire-owned { font-size: 10px; color: var(--green3); margin-top: 2px; }
+
+.hire-cost {
+  text-align: right; flex-shrink: 0;
+}
+.hire-cost-val {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: var(--green);
+}
+.hire-cost-val.cant-afford { color: var(--muted); }
+.hire-loc { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+.hire-rate { font-size: 10px; color: var(--green3); }
+
+/* ── UPGRADES ── */
+.upgrade-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--bg2);
+  border: 1px solid var(--dim);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.upgrade-card.affordable { border-color: var(--amber); }
+.upgrade-card.bought { opacity: .35; cursor: default; }
+.upgrade-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--amber);
+}
+.upg-emoji { font-size: 24px; }
+.upg-info { flex: 1; }
+.upg-name { font-size: 13px; color: var(--amber); }
+.upg-desc { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.upg-cost { font-family: 'VT323', monospace; font-size: 18px; color: var(--amber); }
+
+/* ── EVENTS ── */
+#event-banner {
+  position: fixed;
+  top: 0; left: 50%; transform: translateX(-50%);
+  max-width: 480px; width: 100%;
+  z-index: 500;
+  pointer-events: none;
+}
+.event-toast {
+  margin: 8px 12px;
+  padding: 10px 14px;
+  border-radius: 3px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  animation: slideDown .4s ease, fadeOut .4s ease 3.6s forwards;
+  pointer-events: all;
+}
+.event-good { background: #0a2a0a; border: 1px solid var(--green3); color: var(--green); }
+.event-bad  { background: #2a0a0a; border: 1px solid #660000; color: var(--red); }
+.event-info { background: #0a1a2a; border: 1px solid #004466; color: var(--blue); }
+
+@keyframes slideDown {
+  from { transform: translateY(-40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@keyframes fadeOut {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ── STATS TAB ── */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--dim);
+  font-size: 12px;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-key { color: var(--muted); }
+.stat-val { color: var(--green); font-family: 'VT323', monospace; font-size: 18px; }
+
+/* ── MILESTONE POPUP ── */
+#milestone-popup {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.85);
+  z-index: 800;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#milestone-popup.show { display: flex; }
+.milestone-inner {
+  background: var(--bg2);
+  border: 2px solid var(--green);
+  border-radius: 4px;
+  padding: 28px 24px;
+  text-align: center;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: 0 0 40px rgba(0,255,65,.3);
+}
+.milestone-emoji { font-size: 56px; margin-bottom: 10px; }
+.milestone-title { font-family: 'VT323', monospace; font-size: 40px; color: var(--green); text-shadow: 0 0 15px rgba(0,255,65,.5); }
+.milestone-desc { font-size: 13px; color: var(--text); margin: 10px 0 20px; line-height: 1.6; }
+.milestone-btn {
+  background: var(--green);
+  color: var(--bg);
+  border: none;
+  padding: 10px 32px;
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+/* code rain bg */
+#code-rain {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .04;
+  overflow: hidden;
+}
+
+/* section header */
+.section-head {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--green3);
+  text-transform: uppercase;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--dim);
+  margin-bottom: 10px;
+}
+</style>
+</head>
+<body>
+
+<canvas id="code-rain"></canvas>
+<div id="event-banner"></div>
+
+<div id="milestone-popup">
+  <div class="milestone-inner">
+    <div class="milestone-emoji" id="ms-emoji">🚀</div>
+    <div class="milestone-title" id="ms-title">SERIES A!</div>
+    <div class="milestone-desc" id="ms-desc">You raised your first round. The real work begins.</div>
+    <button class="milestone-btn" onclick="closeMilestone()">KEEP BUILDING</button>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="stage-badge" id="stage-badge">🏠 garage</div>
+    <div class="company-name" id="company-name">MY STARTUP</div>
+    <div class="loc-display" id="loc-display">0</div>
+    <div class="loc-label">lines of code</div>
+    <div class="per-sec" id="per-sec">+0.0 LOC/sec</div>
+    <div class="stage-bar-wrap">
+      <div class="stage-bar" id="stage-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- TAP -->
+  <div id="tap-area">
+    <button id="tap-btn" onclick="handleTap(event)">
+      <div class="tap-icon" id="tap-icon">💻</div>
+      <div class="tap-label">TAP TO CODE</div>
+    </button>
+    <div class="tap-power" id="tap-power">+1 LOC per tap</div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <div class="tab active" onclick="switchTab('hire')">👥 HIRE</div>
+    <div class="tab" onclick="switchTab('upgrades')">⚡ UPGRADES</div>
+    <div class="tab" onclick="switchTab('stats')">📊 STATS</div>
+  </div>
+
+  <!-- PANEL -->
+  <div id="panel"></div>
+
+</div>
+
+<script>
+/* ── Telegram ── */
+const tg = window.Telegram?.WebApp;
+if(tg){ tg.ready(); tg.expand(); }
+
+/* ── GAME DATA ── */
+const STAGES = [
+  { name:'Garage',    icon:'🏠', threshold:0,       tapIcon:'💻', color:'#00ff41' },
+  { name:'Startup',   icon:'🚀', threshold:500,     tapIcon:'⌨️', color:'#00ff41' },
+  { name:'Series A',  icon:'💼', threshold:5000,    tapIcon:'🖥️', color:'#00aaff' },
+  { name:'Unicorn',   icon:'🦄', threshold:50000,   tapIcon:'🏢', color:'#ffb000' },
+  { name:'IPO',       icon:'🎉', threshold:500000,  tapIcon:'📈', color:'#ff6600' },
+];
+
+const HIRES = [
+  { id:'intern',    name:'Intern',        emoji:'🧑‍💻', desc:'Writes bad code but free labor',    baseCost:10,     baseRate:0.1,  owned:0, mult:1.15 },
+  { id:'junior',    name:'Junior Dev',    emoji:'👨‍💻', desc:'Stack Overflow copy-paster',         baseCost:100,    baseRate:1,    owned:0, mult:1.15 },
+  { id:'senior',    name:'Senior Dev',   emoji:'🧙‍♂️', desc:'Actually knows what they\'re doing', baseCost:500,    baseRate:5,    owned:0, mult:1.15 },
+  { id:'lead',      name:'Tech Lead',    emoji:'👑', desc:'Writes docs nobody reads',             baseCost:2000,   baseRate:20,   owned:0, mult:1.15 },
+  { id:'cto',       name:'CTO',          emoji:'🤖', desc:'Rewrites everything in Rust',          baseCost:10000,  baseRate:100,  owned:0, mult:1.15 },
+  { id:'investor',  name:'Angel Investor',emoji:'💰',desc:'Money printer goes brrr',              baseCost:50000,  baseRate:500,  owned:0, mult:1.15 },
+  { id:'vc',        name:'VC Fund',      emoji:'🏦', desc:'Demands 10x in 5 years',               baseCost:200000, baseRate:2000, owned:0, mult:1.15 },
+];
+
+const UPGRADES = [
+  { id:'coffee',    name:'☕ Espresso Machine',  desc:'2x tap power — fuel the grind',        cost:50,     effect:'tap2',    bought:false, requires:null },
+  { id:'monitor',   name:'🖥️ Dual Monitors',    desc:'Interns produce 2x more code',          cost:200,    effect:'intern2', bought:false, requires:'intern' },
+  { id:'standup',   name:'📅 Daily Standups',   desc:'Junior devs 2x more productive',        cost:1000,   effect:'junior2', bought:false, requires:'junior' },
+  { id:'redbull',   name:'🥤 Red Bull Fridge',  desc:'4x tap power — pure caffeine',          cost:2000,   effect:'tap4',    bought:false, requires:'coffee' },
+  { id:'agile',     name:'📋 Agile Sprints',    desc:'Senior devs 2x output',                 cost:5000,   effect:'senior2', bought:false, requires:'senior' },
+  { id:'ai',        name:'🤖 GitHub Copilot',   desc:'All devs produce 2x — AI helps',        cost:20000,  effect:'all2',    bought:false, requires:'lead' },
+  { id:'offshore',  name:'🌍 Offshore Team',    desc:'CTO generates 3x',                      cost:80000,  effect:'cto3',    bought:false, requires:'cto' },
+  { id:'ipo_prep',  name:'📈 IPO Roadshow',     desc:'VCs generate 3x',                       cost:300000, effect:'vc3',     bought:false, requires:'vc' },
+];
+
+const EVENTS = [
+  { id:'bug',      chance:.006, type:'bad',  msg:'🐛 Critical bug found in prod! Lost 10% LOC.', effect:'lose10pct' },
+  { id:'feature',  chance:.004, type:'good', msg:'🎉 TechCrunch featured you! 2x production for 30s.', effect:'boost2x' },
+  { id:'talent',   chance:.003, type:'good', msg:'⭐ 10x engineer joined for free!', effect:'freesenior' },
+  { id:'outage',   chance:.004, type:'bad',  msg:'🔥 Server down! Pay 500 LOC to fix.', effect:'pay500' },
+  { id:'pivot',    chance:.003, type:'info', msg:'💡 Pivoting to AI... tap power doubled for 20s!', effect:'taptmp' },
+  { id:'viral',    chance:.003, type:'good', msg:'📱 App went viral! +1000 LOC bonus!', effect:'plus1000' },
+];
+
+/* ── STATE ── */
+let G = {
+  loc: 0,
+  totalLoc: 0,
+  tapPower: 1,
+  tapMult: 1,
+  tapBoostEnd: 0,
+  locPerSec: 0,
+  hireRateMult: {},
+  globalMult: 1,
+  currentStage: 0,
+  totalTaps: 0,
+  totalHired: 0,
+  startTime: Date.now(),
+  activeBoost: null,
+  tab: 'hire',
+};
+
+/* ── INIT ── */
+loadGame();
+renderPanel();
+setInterval(gameTick, 100);
+setInterval(saveGame, 10000);
+setInterval(maybeEvent, 5000);
+initCodeRain();
+
+/* ── TICK ── */
+function gameTick() {
+  const lps = calcLPS();
+  G.locPerSec = lps;
+  const gained = lps / 10;
+  G.loc += gained;
+  G.totalLoc += gained;
+
+  // tap boost expired?
+  if(G.tapBoostEnd && Date.now() > G.tapBoostEnd) {
+    G.tapMult = 1;
+    G.tapBoostEnd = 0;
+  }
+
+  updateHUD();
+  checkStage();
+}
+
+function calcLPS() {
+  let total = 0;
+  HIRES.forEach(h => {
+    const mult = (G.hireRateMult[h.id] || 1) * G.globalMult;
+    total += h.owned * h.baseRate * mult;
+  });
+  return total;
+}
+
+/* ── TAP ── */
+function handleTap(e) {
+  const power = G.tapPower * G.tapMult;
+  G.loc += power;
+  G.totalLoc += power;
+  G.totalTaps++;
+
+  // visual feedback
+  const btn = document.getElementById('tap-btn');
+  btn.classList.add('tapped');
+  setTimeout(()=>btn.classList.remove('tapped'), 80);
+
+  // floating number
+  const rect = btn.getBoundingClientRect();
+  const tapArea = document.getElementById('tap-area');
+  const aRect = tapArea.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'float-loc';
+  el.textContent = '+' + fmtNum(power);
+  const ox = (e.clientX || rect.left + rect.width/2) - aRect.left;
+  const oy = (e.clientY || rect.top + rect.height/2) - aRect.top;
+  el.style.left = (ox - 20) + 'px';
+  el.style.top  = (oy - 10) + 'px';
+  tapArea.appendChild(el);
+  setTimeout(()=>el.remove(), 900);
+
+  updateHUD();
+}
+
+/* ── HUD ── */
+function updateHUD() {
+  document.getElementById('loc-display').textContent = fmtNum(Math.floor(G.loc));
+  document.getElementById('per-sec').textContent = '+' + fmtNum(G.locPerSec.toFixed(1)) + ' LOC/sec';
+  const power = G.tapPower * G.tapMult;
+  document.getElementById('tap-power').textContent = '+' + fmtNum(power) + ' LOC per tap' + (G.tapMult>1?' ⚡':'');
+
+  // stage progress bar
+  const stage = STAGES[G.currentStage];
+  const next  = STAGES[G.currentStage + 1];
+  if(next) {
+    const pct = Math.min(100, ((G.totalLoc - stage.threshold) / (next.threshold - stage.threshold)) * 100);
+    document.getElementById('stage-bar').style.width = pct + '%';
+  } else {
+    document.getElementById('stage-bar').style.width = '100%';
+  }
+
+  if(G.tab === 'hire') renderHireCards();
+}
+
+/* ── STAGE ── */
+function checkStage() {
+  STAGES.forEach((s, i) => {
+    if(i > G.currentStage && G.totalLoc >= s.threshold) {
+      G.currentStage = i;
+      document.getElementById('stage-badge').textContent = s.icon + ' ' + s.name;
+      document.getElementById('tap-icon').textContent = s.tapIcon;
+      showMilestone(s);
+    }
+  });
+}
+
+function showMilestone(s) {
+  const msgs = {
+    'Startup':  ['🚀', 'YOU\'RE A STARTUP!', 'Congrats! You left the garage. Now find product-market fit before the money runs out.'],
+    'Series A': ['💼', 'SERIES A CLOSED!', 'Investors believe in you. Don\'t spend it all on a ping pong table.'],
+    'Unicorn':  ['🦄', 'YOU\'RE A UNICORN!', '$1B valuation. Your investors are happy. Your engineers want stock options.'],
+    'IPO':      ['🎉', 'YOU IPO\'D!', 'You did it. Wall Street loves you. Time to buy a yacht and start a podcast.'],
+  };
+  const m = msgs[s.name];
+  if(!m) return;
+  document.getElementById('ms-emoji').textContent = m[0];
+  document.getElementById('ms-title').textContent = m[1];
+  document.getElementById('ms-desc').textContent  = m[2];
+  document.getElementById('milestone-popup').classList.add('show');
+}
+
+function closeMilestone() {
+  document.getElementById('milestone-popup').classList.remove('show');
+}
+
+/* ── HIRE ── */
+function hireCost(h) {
+  return Math.floor(h.baseCost * Math.pow(h.mult, h.owned));
+}
+
+function buyHire(id) {
+  const h = HIRES.find(x=>x.id===id);
+  if(!h) return;
+  const cost = hireCost(h);
+  if(G.loc < cost) return;
+  G.loc -= cost;
+  h.owned++;
+  G.totalHired++;
+  renderPanel();
+  saveGame();
+}
+
+/* ── UPGRADES ── */
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x=>x.id===id);
+  if(!u || u.bought || G.loc < u.cost) return;
+  G.loc -= u.cost;
+  u.bought = true;
+  applyUpgrade(u);
+  renderPanel();
+  saveGame();
+}
+
+function applyUpgrade(u) {
+  switch(u.effect) {
+    case 'tap2':     G.tapPower *= 2; break;
+    case 'tap4':     G.tapPower *= 4; break;
+    case 'intern2':  G.hireRateMult['intern']  = (G.hireRateMult['intern']  || 1) * 2; break;
+    case 'junior2':  G.hireRateMult['junior']  = (G.hireRateMult['junior']  || 1) * 2; break;
+    case 'senior2':  G.hireRateMult['senior']  = (G.hireRateMult['senior']  || 1) * 2; break;
+    case 'cto3':     G.hireRateMult['cto']     = (G.hireRateMult['cto']     || 1) * 3; break;
+    case 'vc3':      G.hireRateMult['vc']      = (G.hireRateMult['vc']      || 1) * 3; break;
+    case 'all2':     G.globalMult *= 2; break;
+  }
+}
+
+/* ── EVENTS ── */
+function maybeEvent() {
+  EVENTS.forEach(ev => {
+    if(Math.random() < ev.chance) triggerEvent(ev);
+  });
+}
+
+function triggerEvent(ev) {
+  showToast(ev.msg, ev.type);
+  switch(ev.effect) {
+    case 'lose10pct':  G.loc = Math.max(0, G.loc * .9); break;
+    case 'boost2x':
+      G.globalMult *= 2;
+      setTimeout(()=>{ G.globalMult /= 2; showToast('⏱️ Production boost ended.','info'); }, 30000);
+      break;
+    case 'freesenior':
+      HIRES.find(h=>h.id==='senior').owned++;
+      break;
+    case 'pay500':
+      if(G.loc >= 500) { G.loc -= 500; showToast('🔧 Server fixed! Cost 500 LOC.','info'); }
+      else { G.loc = 0; showToast('💸 Couldn\'t pay — lost all LOC!','bad'); }
+      break;
+    case 'taptmp':
+      G.tapMult = 2; G.tapBoostEnd = Date.now() + 20000;
+      setTimeout(()=>showToast('⏱️ Tap boost ended.','info'), 20000);
+      break;
+    case 'plus1000': G.loc += 1000; G.totalLoc += 1000; break;
+  }
+}
+
+function showToast(msg, type) {
+  const banner = document.getElementById('event-banner');
+  const el = document.createElement('div');
+  el.className = `event-toast event-${type}`;
+  el.textContent = msg;
+  banner.appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+/* ── RENDER PANEL ── */
+function switchTab(tab) {
+  G.tab = tab;
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active', ['hire','upgrades','stats'][i]===tab);
+  });
+  renderPanel();
+}
+
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  if(G.tab === 'hire')     panel.innerHTML = renderHire();
+  if(G.tab === 'upgrades') panel.innerHTML = renderUpgrades();
+  if(G.tab === 'stats')    panel.innerHTML = renderStats();
+}
+
+function renderHireCards() {
+  if(G.tab !== 'hire') return;
+  HIRES.forEach(h => {
+    const card = document.getElementById('hire-'+h.id);
+    if(!card) return;
+    const cost = hireCost(h);
+    const can = G.loc >= cost;
+    card.className = 'hire-card' + (can?' affordable':'');
+    card.querySelector('.hire-cost-val').className = 'hire-cost-val' + (can?'':' cant-afford');
+    card.querySelector('.hire-cost-val').textContent = fmtNum(cost);
+    card.querySelector('.hire-owned').textContent = h.owned > 0 ? `owned: ${h.owned}` : '';
+  });
+}
+
+function renderHire() {
+  return '<div class="section-head">👥 hire your team</div>' +
+    HIRES.map(h => {
+      const cost = hireCost(h);
+      const can = G.loc >= cost;
+      const rate = (h.baseRate * (G.hireRateMult[h.id]||1) * G.globalMult).toFixed(1);
+      return `<div class="hire-card ${can?'affordable':''}" id="hire-${h.id}" onclick="buyHire('${h.id}')">
+        <div class="hire-emoji">${h.emoji}</div>
+        <div class="hire-info">
+          <div class="hire-name">${h.name}</div>
+          <div class="hire-desc">${h.desc}</div>
+          <div class="hire-owned">${h.owned>0?'owned: '+h.owned:''}</div>
+        </div>
+        <div class="hire-cost">
+          <div class="hire-cost-val ${can?'':'cant-afford'}">${fmtNum(cost)}</div>
+          <div class="hire-loc">LOC</div>
+          <div class="hire-rate">+${rate}/s each</div>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function renderUpgrades() {
+  const available = UPGRADES.filter(u => {
+    if(u.bought) return true;
+    if(!u.requires) return true;
+    const req = HIRES.find(h=>h.id===u.requires);
+    return req && req.owned > 0;
+  });
+  return '<div class="section-head">⚡ upgrades</div>' +
+    available.map(u => {
+      const can = G.loc >= u.cost && !u.bought;
+      return `<div class="upgrade-card ${u.bought?'bought':can?'affordable':''}" 
+               style="position:relative" onclick="buyUpgrade('${u.id}')">
+        <div class="upg-emoji">${u.name.split(' ')[0]}</div>
+        <div class="upg-info">
+          <div class="upg-name">${u.name.substring(u.name.indexOf(' ')+1)}</div>
+          <div class="upg-desc">${u.desc}</div>
+        </div>
+        <div class="upg-cost">${u.bought ? '✓' : fmtNum(u.cost)}</div>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Hire people to unlock upgrades</div>';
+}
+
+function renderStats() {
+  const runtime = Math.floor((Date.now()-G.startTime)/1000);
+  const h = Math.floor(runtime/3600);
+  const m = Math.floor((runtime%3600)/60);
+  const s = runtime%60;
+  const stage = STAGES[G.currentStage];
+  return `<div class="section-head">📊 company stats</div>
+    <div class="stat-row"><span class="stat-key">Company stage</span><span class="stat-val">${stage.icon} ${stage.name}</span></div>
+    <div class="stat-row"><span class="stat-key">Total LOC written</span><span class="stat-val">${fmtNum(Math.floor(G.totalLoc))}</span></div>
+    <div class="stat-row"><span class="stat-key">LOC per second</span><span class="stat-val">${fmtNum(G.locPerSec.toFixed(1))}</span></div>
+    <div class="stat-row"><span class="stat-key">Tap power</span><span class="stat-val">${fmtNum(G.tapPower * G.tapMult)}</span></div>
+    <div class="stat-row"><span class="stat-key">Total taps</span><span class="stat-val">${fmtNum(G.totalTaps)}</span></div>
+    <div class="stat-row"><span class="stat-key">Total hired</span><span class="stat-val">${G.totalHired}</span></div>
+    <div class="stat-row"><span class="stat-key">Time playing</span><span class="stat-val">${h}h ${m}m ${s}s</span></div>
+    <div class="stat-row"><span class="stat-key">Global multiplier</span><span class="stat-val">×${G.globalMult}</span></div>`;
+}
+
+/* ── SAVE / LOAD ── */
+function saveGame() {
+  const data = {
+    loc: G.loc, totalLoc: G.totalLoc,
+    tapPower: G.tapPower, globalMult: G.globalMult,
+    hireRateMult: G.hireRateMult,
+    totalTaps: G.totalTaps, totalHired: G.totalHired,
+    currentStage: G.currentStage,
+    startTime: G.startTime,
+    hires: HIRES.map(h=>({id:h.id, owned:h.owned})),
+    upgrades: UPGRADES.map(u=>({id:u.id, bought:u.bought})),
+  };
+  localStorage.setItem('startup_clicker', JSON.stringify(data));
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem('startup_clicker');
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    G.loc = data.loc || 0;
+    G.totalLoc = data.totalLoc || 0;
+    G.tapPower = data.tapPower || 1;
+    G.globalMult = data.globalMult || 1;
+    G.hireRateMult = data.hireRateMult || {};
+    G.totalTaps = data.totalTaps || 0;
+    G.totalHired = data.totalHired || 0;
+    G.currentStage = data.currentStage || 0;
+    G.startTime = data.startTime || Date.now();
+    if(data.hires) data.hires.forEach(h=>{ const f=HIRES.find(x=>x.id===h.id); if(f) f.owned=h.owned; });
+    if(data.upgrades) data.upgrades.forEach(u=>{ const f=UPGRADES.find(x=>x.id===u.id); if(f&&u.bought){ f.bought=true; applyUpgrade(f); } });
+    const stage = STAGES[G.currentStage];
+    document.getElementById('stage-badge').textContent = stage.icon + ' ' + stage.name;
+    document.getElementById('tap-icon').textContent = stage.tapIcon;
+  } catch(e) { console.log('save error', e); }
+}
+
+/* ── UTILS ── */
+function fmtNum(n) {
+  n = parseFloat(n);
+  if(n >= 1e12) return (n/1e12).toFixed(2) + 'T';
+  if(n >= 1e9)  return (n/1e9).toFixed(2)  + 'B';
+  if(n >= 1e6)  return (n/1e6).toFixed(2)  + 'M';
+  if(n >= 1e3)  return (n/1e3).toFixed(1)  + 'K';
+  return Math.floor(n).toString();
+}
+
+/* ── CODE RAIN ── */
+function initCodeRain() {
+  const canvas = document.getElementById('code-rain');
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const cols = Math.floor(canvas.width / 14);
+  const drops = Array(cols).fill(1);
+  const chars = '01アイウエオカキクケコ{}[]<>/\\;:=+-*&^%$#@!';
+
+  setInterval(() => {
+    ctx.fillStyle = 'rgba(5,10,5,0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = '12px monospace';
+    drops.forEach((y, i) => {
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(ch, i * 14, y * 14);
+      if(y * 14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    });
+  }, 60);
+}
+</script>
+</body>
+</html>
